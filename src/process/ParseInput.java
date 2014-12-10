@@ -36,6 +36,7 @@ public class ParseInput {
 	
 	long start;
 	long tmpStart;
+	boolean brute = true;
 	
 	//Matrix Y
 	HashMap<Integer, ArrayList<Integer>> mtrY = new HashMap<Integer, ArrayList<Integer>>();
@@ -44,21 +45,35 @@ public class ParseInput {
 	//solution list, contain all the solutions.
 	//each solution contains the row numbers in mtrY
 	ArrayList<ArrayList<Integer>> soluList = new ArrayList<ArrayList<Integer>>();
+	ArrayList<ArrayList<Integer>> bruteForceSolu = new ArrayList<ArrayList<Integer>>();
 	
 	//solution list Interface for Lin.
 	//each solution contains all the tiles that compose the board.
 	public ArrayList<HashMap<Integer,ArrayList<Unit>>> soluInterface = new ArrayList<HashMap<Integer,ArrayList<Unit>>>();
 
+	public void setBruteFlag(boolean brute){
+		this.brute = brute;
+	}
+	
 	public void process() {
-//		parse(filePath);
-		consY();
-		consX();
-		ArrayList<Integer> solution = new ArrayList<Integer>();
 		start = System.currentTimeMillis();
 		tmpStart = start;
-		solve(mtrX, mtrY, solution);
-		System.out.print("There are total ");
-		System.out.print(this.soluList.size());
+		int soluNum;
+		if( brute ) {
+			bruteForce();
+			soluNum = bruteForceSolu.size();
+		}
+		else {
+			consY();
+			consX();
+			ArrayList<Integer> solution = new ArrayList<Integer>();
+			start = System.currentTimeMillis();
+			tmpStart = start;
+			solve(mtrX, mtrY, solution);
+			soluNum = soluList.size();
+		}
+		System.out.print("There are totally ");
+		System.out.print(soluNum);
 		System.out.println(" solutions");
 		System.out.println("Done!");
 		long end = System.currentTimeMillis();
@@ -349,22 +364,94 @@ public class ParseInput {
 	}
 	
 	public void convertSolu(){
-		for( int i = 0; i < this.soluList.size(); i++ ) {
-			ArrayList tmp = this.soluList.get(i);
-			HashMap<Integer,ArrayList<Unit>> solu = new HashMap<Integer,ArrayList<Unit>>();
-			for( int j = 0; j < tmp.size(); j++ ) {
-				ArrayList<Integer> rowY = mtrY.get(tmp.get(j));
-				ArrayList<Unit> tile = new ArrayList<Unit>();
-				int id = rowY.get(0);
-				for( int k = 1; k < rowY.size(); k++ ) {
-					int unitId = rowY.get(k)-this.tiles.length;
-					Unit unit = new Unit(this.board.pX[0][unitId],this.board.pY[0][unitId],this.board.pCh[0][unitId]);
-					tile.add(unit);
+		if (brute == false) {
+			for (int i = 0; i < this.soluList.size(); i++) {
+				ArrayList tmp = this.soluList.get(i);
+				HashMap<Integer, ArrayList<Unit>> solu = new HashMap<Integer, ArrayList<Unit>>();
+				for (int j = 0; j < tmp.size(); j++) {
+					ArrayList<Integer> rowY = mtrY.get(tmp.get(j));
+					ArrayList<Unit> tile = new ArrayList<Unit>();
+					int id = rowY.get(0);
+					for (int k = 1; k < rowY.size(); k++) {
+						int unitId = rowY.get(k) - this.tiles.length;
+						Unit unit = new Unit(this.board.pX[0][unitId],
+								this.board.pY[0][unitId],
+								this.board.pCh[0][unitId]);
+						tile.add(unit);
+					}
+					solu.put(id, tile);
 				}
-				solu.put(id, tile);
+				this.soluInterface.add(solu);
 			}
-			this.soluInterface.add(solu);
+		}
+		else {
+			for (int i = 0; i < this.bruteForceSolu.size(); i++) {
+				HashMap<Integer, ArrayList<Unit>> solu = new HashMap<Integer, ArrayList<Unit>>();
+				for(int j = 0; j < this.tiles.length; j++ ) {
+					ArrayList<Unit> tile = new ArrayList<Unit>();
+					solu.put(j, tile);
+				}
+				for( int j = 0; j < bruteForceSolu.get(i).size(); j++ ) {
+					int id = bruteForceSolu.get(i).get(j)-1;
+					Unit unit = new Unit(this.board.pX[0][j], this.board.pY[0][j], this.board.pCh[0][j]);
+					solu.get(id).add(unit);
+				}
+				this.soluInterface.add(solu);
+			}
 		}
 		int index = 1;
+	}
+	
+	public void bruteForce(){
+		ArrayList<Integer> solu = new ArrayList<Integer>();
+		for( int i = 0; i < this.board.size(); i++ )
+			solu.add(0);
+		bruteForceSearch(0, solu);
+	}
+	
+	public void bruteForceSearch(int depth, ArrayList<Integer> solu){
+		//for tile 'depth', consider the transition/rotation/flipption situation
+//		System.out.print("Depth ");
+//		System.out.print(depth);
+//		System.out.println("\n");
+		for( int i = 0; i < tiles[depth].oCount; i++ ) {
+			ArrayList<Integer> subSolu = new ArrayList<Integer>(solu);
+			
+			//for tile 'depth', it contains totally k units
+			Boolean flag = false; //if the board contains this tile, then true;
+			for( int k = 0; k < tiles[depth].size(); k++ ){
+				flag = false;
+				//check if the kth units is in the board
+				for( int l = 0; l < this.board.size(); l++ ) {
+					if( sameUnit(tiles[depth].pX[i][k],tiles[depth].pY[i][k],tiles[depth].pCh[i][k],board,l) && subSolu.get(l) == 0){
+						subSolu.set(l, depth+1);
+						flag = true;
+						break;
+					}
+				}
+				if( flag == false ) break;
+			}
+			
+			if( depth == tiles.length-1 && flag == true) {
+				if( !bruteForceSolu.contains(subSolu))
+					bruteForceSolu.add(subSolu);
+				System.out.print("Solution ");
+				System.out.print(": ");
+				for (int j : subSolu) {
+					System.out.print(j);
+					System.out.print(' ');
+				}
+				
+				long end = System.currentTimeMillis();
+				System.out.print("  Time: ");
+				System.out.print(end-tmpStart);
+				tmpStart = end;
+				System.out.println("\n");
+			}
+			else if( flag == true && depth < tiles.length-1 ){
+				//ArrayList<Integer> subsubSolu = new ArrayList<Integer>(solu);
+				bruteForceSearch(depth+1, subSolu);
+			}
+		}
 	}
 }
